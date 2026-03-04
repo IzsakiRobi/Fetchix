@@ -1,3 +1,6 @@
+
+<img width="1275" height="551" alt="Fetchix_Downloading" src="https://github.com/user-attachments/assets/ec3b5087-f263-475f-b45c-970a1b4f2810" />
+
 ## Fetchix
 
 Simple Portable Download Manager for Linux (Gnome) - Written in Vala, use GTK4, Libadwaita.  

@@ -18,6 +18,10 @@ I also created a separate Firefox extension called **Send to Fetchix**, which is
 
 ### Install:  
 
+#### The program needs **Aria2c** program. Install first your distro install command.  
+
+then:  
+
 ```
 git clone https://github.com/IzsakiRobi/Fetchix.git  
 cd Fetchix

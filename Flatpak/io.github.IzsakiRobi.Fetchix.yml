@@ -1,0 +1,56 @@
+app-id: io.github.IzsakiRobi.Fetchix
+runtime: org.gnome.Platform
+runtime-version: '49'
+sdk: org.gnome.Sdk
+command: fetchix
+finish-args:
+  - --share=network
+  - --share=ipc
+  - --socket=fallback-x11
+  - --socket=wayland
+  - --filesystem=xdg-download
+  - --talk-name=org.freedesktop.Notifications
+modules:
+  - name: aria2
+    buildsystem: autotools
+    config-opts:
+      - --without-openssl
+      - --with-gnutls
+    sources:
+      - type: archive
+        url: https://github.com/aria2/aria2/releases/download/release-1.37.0/aria2-1.37.0.tar.xz
+        sha256: 60a420ad7085eb616cb6e2bdf0a7206d68ff3d37fb5a956dc44242eb2f79b66b
+
+  # 1. Modul: Maga a program fordítása Mesonnal
+  - name: fetchix
+    buildsystem: meson
+    sources:
+      - type: dir
+        path: .
+
+  # 2. Modul: Az ikonok és a desktop fájl a helyére tétele
+  - name: fetchix-assets
+    buildsystem: simple
+    build-commands:
+      - mkdir -p /app/share/Fetchix/Assets
+      - cp -r Assets/* /app/share/Fetchix/Assets/
+      - cp *.svg /app/share/Fetchix/Assets/ 2>/dev/null || true
+      - mkdir -p /app/share/icons/hicolor/scalable/apps
+      - cp /app/share/Fetchix/Assets/io.github.IzsakiRobi.Fetchix.svg /app/share/icons/hicolor/scalable/apps/
+      - mkdir -p /app/share/applications
+      - |
+        cat <<EOF > /app/share/applications/io.github.IzsakiRobi.Fetchix.desktop
+        [Desktop Entry]
+        Name=Fetchix
+        Comment=Simple, multi-thread download manager
+        Exec=fetchix %U
+        Icon=io.github.IzsakiRobi.Fetchix
+        Terminal=false
+        Type=Application
+        Categories=Network;FileTransfer;
+        MimeType=x-scheme-handler/fetchix;
+        StartupNotify=false
+        EOF
+    sources:
+      - type: dir
+        path: .

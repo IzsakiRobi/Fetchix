@@ -637,7 +637,7 @@ public class FetchixApp : Adw.Application {
         
         var pref_btn = new Gtk.Button.from_icon_name("preferences-system-symbolic");
         pref_btn.clicked.connect(() => {
-            window.set_focus(null); // Beállításokra kattintva eldobja a fókuszt
+            window.set_focus(null);
             if (active_settings_dialog != null) {
                 active_settings_dialog.present();
                 return;
@@ -652,7 +652,7 @@ public class FetchixApp : Adw.Application {
         header.pack_start(pref_btn);
         
         var title_stack = new Gtk.Stack();
-        title_stack.transition_type = Gtk.StackTransitionType.NONE; // Nincs animáció, nincs beragadó kék keret!
+        title_stack.transition_type = Gtk.StackTransitionType.NONE;
 
         var url_entry = new Gtk.Entry();
         url_entry.placeholder_text = "Paste URL here and hit Enter...";
@@ -669,7 +669,7 @@ public class FetchixApp : Adw.Application {
         fake_entry.width_request = 350;
         fake_entry.can_target = false; 
         fake_entry.focusable = false;
-        fake_entry.can_focus = false; // Soha nem lesz kék kerete
+        fake_entry.can_focus = false;
 
         url_entry.changed.connect(() => {
             fake_entry.set_text(url_entry.get_text());
@@ -682,7 +682,7 @@ public class FetchixApp : Adw.Application {
         title_click.released.connect((n, x, y) => {
             title_stack.set_visible_child_name("real");
             url_entry.grab_focus();
-            url_entry.set_position(-1); // Kurzort a végére teszi
+            url_entry.set_position(-1);
         });
         fake_handle.add_controller(title_click);
 
@@ -695,7 +695,7 @@ public class FetchixApp : Adw.Application {
         var key_ctrl = new Gtk.EventControllerKey();
         key_ctrl.key_pressed.connect((keyval, keycode, state) => {
             if (keyval == Gdk.Key.Escape) {
-                window.set_focus(null); // Esc-re eldobja a fókuszt
+                window.set_focus(null);
                 return true;
             }
             return false;
@@ -719,7 +719,7 @@ public class FetchixApp : Adw.Application {
             string url = url_entry.get_text().strip();
             if (url != "") {
                 url_entry.set_text("");
-                window.set_focus(null); // Enterre eldobja a fókuszt
+                window.set_focus(null);
                 start_new_download(url);
             }
         });
@@ -731,7 +731,7 @@ public class FetchixApp : Adw.Application {
         
         apply_ui_settings();
 
-        var empty_state_icon = new Gtk.Image.from_file(Environment.get_home_dir() + "/.local/share/Fetchix/Assets/Drop.png");
+        var empty_state_icon = new Gtk.Image.from_file("/app/share/Fetchix/Assets/Drop.png");
         empty_state_icon.pixel_size = 64;
         empty_state_icon.set_size_request(64, 64);
 
@@ -754,7 +754,6 @@ public class FetchixApp : Adw.Application {
         overlay.add_css_class("no-border-drop");
         overlay.set_child(content);
 
-        // Üres helyre kattintás a teljes ablakban elveszi a fókuszt az entry-től
         var bg_click = new Gtk.GestureClick();
         bg_click.pressed.connect(() => {
             window.set_focus(null);
@@ -1032,7 +1031,7 @@ public class FetchixApp : Adw.Application {
                     var notif = new GLib.Notification("Download Complete");
                     notif.set_body(file_name);
                     
-                    string icon_path = Environment.get_home_dir() + "/.local/share/Fetchix/Assets/io.github.IzsakiRobi.Fetchix.svg";
+                    string icon_path = "/app/share/Fetchix/Assets/io.github.IzsakiRobi.Fetchix.svg";
                     notif.set_icon(new GLib.FileIcon(GLib.File.new_for_path(icon_path)));
                     notif.set_priority(GLib.NotificationPriority.HIGH);
                     
@@ -1046,7 +1045,7 @@ public class FetchixApp : Adw.Application {
                     var notif = new GLib.Notification("Download Failed");
                     notif.set_body(err_msg);
                     
-                    string icon_path = Environment.get_home_dir() + "/.local/share/Fetchix/Assets/io.github.IzsakiRobi.Fetchix.svg";
+                    string icon_path = "/app/share/Fetchix/Assets/io.github.IzsakiRobi.Fetchix.svg";
                     notif.set_icon(new GLib.FileIcon(GLib.File.new_for_path(icon_path)));
                     notif.set_priority(GLib.NotificationPriority.HIGH);
                     

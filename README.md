@@ -1,7 +1,9 @@
-
+<p align="center">
 <img width="700" height="300" alt="Fetchix_Downloading" src="https://github.com/user-attachments/assets/ec3b5087-f263-475f-b45c-970a1b4f2810"/>  
-
+</p>
+<p align="center">
 <a href="https://github.com/IzsakiRobi/Fetchix/blob/main/Screenshots/Fetchix_Preferences.png"><b>Preferences Window</b></a> - <a href="https://github.com/IzsakiRobi/Fetchix/blob/main/Screenshots/Fetchix_Main.png"><b>Main Window</b></a> 
+</p>
 
 ## Fetchix
 

@@ -523,7 +523,7 @@ public class FetchixApp : Adw.Application {
             scroll.max_content_height = 800;
             window.set_default_size(650, -1);
         } else {
-            scroll.min_content_height = -1; // ITT VETTÜK KI A GÁTAT (régen 300 volt)
+            scroll.min_content_height = -1;
             scroll.max_content_height = -1;
             window.set_default_size(650, 400); 
         }
@@ -626,6 +626,7 @@ public class FetchixApp : Adw.Application {
             string arg = args[i];
             string real_url = arg;
             
+            // ITT TÖRÖLTEM AZ UNESCAPE_STRING MÓDOSÍTÁST! Visszaállt az eredeti.
             if (arg.has_prefix("fetchix://")) {
                 real_url = arg.substring(10);
             } else if (arg.has_prefix("fetchix:")) {
@@ -917,13 +918,23 @@ public class FetchixApp : Adw.Application {
         });
     }
 
-    private void start_new_download(string url) {
+    // ÚJ: A hidegindításos probléma megoldása. Beleteszi a "várólistába" a Firefox linkjét, amíg a motor feláll.
+    private async void process_queued_download(string url) {
+        int attempts = 0;
+        while (!manager.is_running && attempts < 50) {
+            yield manager.wait_ms(200);
+            attempts++;
+        }
         manager.add_uri.begin(url, settings.download_dir, settings.max_threads, (obj, res) => {
             string? gid = manager.add_uri.end(res);
             if (gid != null) {
                 create_row_ui(gid, url);
             }
         });
+    }
+
+    private void start_new_download(string url) {
+        process_queued_download.begin(url);
     }
 
     private void create_row_ui(string gid, string url) {

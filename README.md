@@ -5,7 +5,7 @@
 <a href="https://github.com/IzsakiRobi/Fetchix/blob/main/Screenshots/Fetchix_Preferences.png"><b>Preferences Window</b></a> - <a href="https://github.com/IzsakiRobi/Fetchix/blob/main/Screenshots/Fetchix_Main.png"><b>Main Window</b></a> 
 </p>
 
-## Fetchix
+## Fetchix v1.1
 
 Simple Portable Download Manager for Linux (Gnome) - Written in Vala, use GTK4, Libadwaita.  
 
@@ -16,7 +16,7 @@ Simple Download 🙂
 
 I also created a separate Firefox extension called **Send to Fetchix**, which is currently pending approval. However, I’m sharing the source code, so it can be self-signed for personal use in the meantime.
 
-### Install:  
+### Local Install:  
 
 #### The program needs **Aria2c** program. Install first your distro install command.  
 
@@ -30,5 +30,9 @@ chmod +x ./install.sh
 ```
 This script create program dir to: ~/User/.local/share/Fetchix directory, and a .desktop file.
 run program from your program menu.  
+
+### Flatpak Install:  
+
+Download Fetchix.flatpak from Flatpak directory:
 
 Enjoy 🙂 

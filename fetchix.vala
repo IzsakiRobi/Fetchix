@@ -9,6 +9,7 @@ public class AppSettings : GLib.Object {
     public int max_threads;
     public bool auto_resize;
     public bool remember_downloads;
+    public bool autostart_downloads;
     
     private string config_dir;
     public string session_path;
@@ -53,6 +54,8 @@ public class AppSettings : GLib.Object {
         } catch (Error e) { auto_resize = false; }
         try { remember_downloads = kf.get_boolean("System", "RememberDownloads");
         } catch (Error e) { remember_downloads = true; }
+        try { autostart_downloads = kf.get_boolean("System", "AutostartDownloads");
+        } catch (Error e) { autostart_downloads = true; }
     }
 
     public void save() {
@@ -61,6 +64,7 @@ public class AppSettings : GLib.Object {
         kf.set_integer("Downloads", "Threads", max_threads);
         kf.set_boolean("UI", "AutoResize", auto_resize);
         kf.set_boolean("System", "RememberDownloads", remember_downloads);
+        kf.set_boolean("System", "AutostartDownloads", autostart_downloads);
         try { kf.save_to_file(config_path);
         } catch (Error e) {}
     }
@@ -89,6 +93,14 @@ string format_time(int64 seconds) {
     if (seconds < 60) return "%llds".printf(seconds);
     if (seconds < 3600) return "%lldm %llds".printf(seconds / 60, seconds % 60);
     return "%lldh %lldm".printf(seconds / 3600, (seconds % 3600) / 60);
+}
+
+string get_asset_path(string filename) {
+    if (GLib.FileUtils.test("/.flatpak-info", GLib.FileTest.EXISTS)) {
+        return "/app/share/Fetchix/Assets/" + filename;
+    } else {
+        return Environment.get_home_dir() + "/.local/share/Fetchix/Assets/" + filename;
+    }
 }
 
 GLib.Icon get_icon_for_url(string url) {
@@ -259,11 +271,27 @@ public class FetchixManager : GLib.Object {
 
     public async void ensure_started(string sess_path) {
         if (!is_running) {
+            for (int i = 0; i < 30; i++) {
+                var check = yield call_rpc("aria2.getVersion");
+                if (check != null) {
+                    yield wait_ms(500);
+                } else {
+                    break;
+                }
+            }
+
             try {
                 string cmd = "aria2c --enable-rpc --rpc-listen-all=false --input-file='%s' --save-session='%s' --save-session-interval=30".printf(sess_path, sess_path);
                 Process.spawn_command_line_async(cmd);
-                is_running = true;
-                yield wait_ms(1000);
+                
+                for (int i = 0; i < 20; i++) {
+                    yield wait_ms(250);
+                    var verify = yield call_rpc("aria2.getVersion");
+                    if (verify != null) {
+                        is_running = true;
+                        break;
+                    }
+                }
             } catch (Error e) {}
         }
     }
@@ -317,6 +345,7 @@ public class FetchixManager : GLib.Object {
 
     public async void force_shutdown() {
         if (!is_running) return;
+        yield call_rpc("aria2.saveSession");
         yield call_rpc("aria2.forceShutdown");
     }
 }
@@ -387,10 +416,19 @@ public class SettingsDialog : Adw.Window {
         remember_switch.active = settings.remember_downloads;
         remember_row.add_suffix(remember_switch);
 
+        var autostart_row = new Adw.ActionRow();
+        autostart_row.title = "Autostart Downloads";
+        autostart_row.subtitle = "Resume active downloads on startup";
+        var autostart_switch = new Gtk.Switch();
+        autostart_switch.valign = Align.CENTER;
+        autostart_switch.active = settings.autostart_downloads;
+        autostart_row.add_suffix(autostart_switch);
+
         pref_group.add(folder_row);
         pref_group.add(thread_row);
         pref_group.add(resize_row);
         pref_group.add(remember_row);
+        pref_group.add(autostart_row);
         content_box.append(pref_group);
 
         var btn_box = new Gtk.Box(Orientation.HORIZONTAL, 12);
@@ -419,6 +457,7 @@ public class SettingsDialog : Adw.Window {
             settings.max_threads = (int)spin.value;
             settings.auto_resize = resize_switch.active;
             settings.remember_downloads = remember_switch.active;
+            settings.autostart_downloads = autostart_switch.active;
             settings.save();
             
             this.close();
@@ -484,7 +523,7 @@ public class FetchixApp : Adw.Application {
             scroll.max_content_height = 800;
             window.set_default_size(650, -1);
         } else {
-            scroll.min_content_height = 300;
+            scroll.min_content_height = -1; // ITT VETTÜK KI A GÁTAT (régen 300 volt)
             scroll.max_content_height = -1;
             window.set_default_size(650, 400); 
         }
@@ -525,6 +564,25 @@ public class FetchixApp : Adw.Application {
                 }
             });
             dialog.present(window);
+        } else if (has_active && settings.remember_downloads) {
+            var dialog = new Adw.AlertDialog(
+                restart ? "Restart Fetchix?" : "Quit Fetchix?", 
+                "Downloads will be safely paused and remembered for later."
+            );
+            dialog.add_response("stay", "Cancel");
+            dialog.add_response("proceed", restart ? "Restart" : "Quit");
+            dialog.set_response_appearance("proceed", Adw.ResponseAppearance.SUGGESTED);
+
+            dialog.response.connect((response) => {
+                if (response == "proceed") {
+                    settings.save_progress(rows);
+                    manager.force_shutdown.begin((obj, res) => { 
+                        if (restart) spawn_and_quit();
+                        else window.destroy(); 
+                    });
+                }
+            });
+            dialog.present(window);
         } else {
             settings.save_progress(rows);
             manager.force_shutdown.begin((obj, res) => { 
@@ -542,7 +600,7 @@ public class FetchixApp : Adw.Application {
             } catch (FileError e) {
                 path = exec_path;
             }
-            Process.spawn_command_line_async("sh -c 'sleep 0.5 && \"" + path + "\"'");
+            Process.spawn_command_line_async("sh -c 'sleep 1.5 && \"" + path + "\"'");
         } catch (Error e) {}
         window.destroy();
     }
@@ -637,7 +695,7 @@ public class FetchixApp : Adw.Application {
         
         var pref_btn = new Gtk.Button.from_icon_name("preferences-system-symbolic");
         pref_btn.clicked.connect(() => {
-            window.set_focus(null); // Beállításokra kattintva eldobja a fókuszt
+            window.set_focus(null);
             if (active_settings_dialog != null) {
                 active_settings_dialog.present();
                 return;
@@ -652,7 +710,7 @@ public class FetchixApp : Adw.Application {
         header.pack_start(pref_btn);
         
         var title_stack = new Gtk.Stack();
-        title_stack.transition_type = Gtk.StackTransitionType.NONE; // Nincs animáció, nincs beragadó kék keret!
+        title_stack.transition_type = Gtk.StackTransitionType.NONE;
 
         var url_entry = new Gtk.Entry();
         url_entry.placeholder_text = "Paste URL here and hit Enter...";
@@ -669,7 +727,7 @@ public class FetchixApp : Adw.Application {
         fake_entry.width_request = 350;
         fake_entry.can_target = false; 
         fake_entry.focusable = false;
-        fake_entry.can_focus = false; // Soha nem lesz kék kerete
+        fake_entry.can_focus = false;
 
         url_entry.changed.connect(() => {
             fake_entry.set_text(url_entry.get_text());
@@ -682,7 +740,7 @@ public class FetchixApp : Adw.Application {
         title_click.released.connect((n, x, y) => {
             title_stack.set_visible_child_name("real");
             url_entry.grab_focus();
-            url_entry.set_position(-1); // Kurzort a végére teszi
+            url_entry.set_position(-1);
         });
         fake_handle.add_controller(title_click);
 
@@ -695,7 +753,7 @@ public class FetchixApp : Adw.Application {
         var key_ctrl = new Gtk.EventControllerKey();
         key_ctrl.key_pressed.connect((keyval, keycode, state) => {
             if (keyval == Gdk.Key.Escape) {
-                window.set_focus(null); // Esc-re eldobja a fókuszt
+                window.set_focus(null);
                 return true;
             }
             return false;
@@ -719,7 +777,7 @@ public class FetchixApp : Adw.Application {
             string url = url_entry.get_text().strip();
             if (url != "") {
                 url_entry.set_text("");
-                window.set_focus(null); // Enterre eldobja a fókuszt
+                window.set_focus(null);
                 start_new_download(url);
             }
         });
@@ -731,7 +789,7 @@ public class FetchixApp : Adw.Application {
         
         apply_ui_settings();
 
-        var empty_state_icon = new Gtk.Image.from_file(Environment.get_home_dir() + "/.local/share/Fetchix/Assets/Drop.png");
+        var empty_state_icon = new Gtk.Image.from_file(get_asset_path("Drop.png"));
         empty_state_icon.pixel_size = 64;
         empty_state_icon.set_size_request(64, 64);
 
@@ -754,7 +812,6 @@ public class FetchixApp : Adw.Application {
         overlay.add_css_class("no-border-drop");
         overlay.set_child(content);
 
-        // Üres helyre kattintás a teljes ablakban elveszi a fókuszt az entry-től
         var bg_click = new Gtk.GestureClick();
         bg_click.pressed.connect(() => {
             window.set_focus(null);
@@ -810,12 +867,24 @@ public class FetchixApp : Adw.Application {
         
         var root_active = yield manager.call_rpc("aria2.tellActive");
         if (root_active != null && root_active.get_object().has_member("result")) {
-            add_rows_from_json(root_active.get_object().get_array_member("result"));
+            var arr = root_active.get_object().get_array_member("result");
+            add_rows_from_json(arr);
+            if (!settings.autostart_downloads) {
+                arr.foreach_element((a, i, node) => {
+                    manager.pause_download.begin(node.get_object().get_string_member("gid"));
+                });
+            }
         }
         
         var root_waiting = yield manager.call_rpc("aria2.tellWaiting", "[0, 1000]");
         if (root_waiting != null && root_waiting.get_object().has_member("result")) {
-            add_rows_from_json(root_waiting.get_object().get_array_member("result"));
+            var arr = root_waiting.get_object().get_array_member("result");
+            add_rows_from_json(arr);
+            if (!settings.autostart_downloads) {
+                arr.foreach_element((a, i, node) => {
+                    manager.pause_download.begin(node.get_object().get_string_member("gid"));
+                });
+            }
         }
     }
 
@@ -1032,7 +1101,7 @@ public class FetchixApp : Adw.Application {
                     var notif = new GLib.Notification("Download Complete");
                     notif.set_body(file_name);
                     
-                    string icon_path = Environment.get_home_dir() + "/.local/share/Fetchix/Assets/io.github.IzsakiRobi.Fetchix.svg";
+                    string icon_path = get_asset_path("io.github.IzsakiRobi.Fetchix.svg");
                     notif.set_icon(new GLib.FileIcon(GLib.File.new_for_path(icon_path)));
                     notif.set_priority(GLib.NotificationPriority.HIGH);
                     
@@ -1046,7 +1115,7 @@ public class FetchixApp : Adw.Application {
                     var notif = new GLib.Notification("Download Failed");
                     notif.set_body(err_msg);
                     
-                    string icon_path = Environment.get_home_dir() + "/.local/share/Fetchix/Assets/io.github.IzsakiRobi.Fetchix.svg";
+                    string icon_path = get_asset_path("io.github.IzsakiRobi.Fetchix.svg");
                     notif.set_icon(new GLib.FileIcon(GLib.File.new_for_path(icon_path)));
                     notif.set_priority(GLib.NotificationPriority.HIGH);
                     

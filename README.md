@@ -33,6 +33,9 @@ run program from your program menu.
 
 ### Flatpak Install:  
 
-Download Fetchix.flatpak from Flatpak directory:
+Download Fetchix.flatpak from Flatpak directory.  
+
+`https://github.com/IzsakiRobi/Fetchix/raw/refs/heads/main/Fetchix.flatpak`  
+`flatpak install --user Fetchix.flatpak`
 
 Enjoy 🙂 
